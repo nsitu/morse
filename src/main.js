@@ -191,7 +191,7 @@ class MorseCodeDecoder {
         // Create audio player with higher volume for better reliability
         this.player = new MorsePlayerWAA({
             defaultFrequency: 563,
-            volume: 0.9, // Increased from 0.5 to 0.9 for better detection reliability
+            volume: 0.99, // Increased from 0.5 to 0.99 for better detection reliability
             sequenceEndCallback: () => {
                 // Re-enable send button when playback ends
                 document.getElementById('sendBtn').disabled = false;

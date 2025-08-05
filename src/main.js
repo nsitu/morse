@@ -218,11 +218,11 @@ class MorseCodeDecoder {
             // Create adaptive listener with parameters matching the working demo site
             this.listener = new MorseAdaptiveListener(
                 2048,          // fftSize
-                -60,           // volumeMin (demo site uses -60, not -100)
+                -80,           // volumeMin (demo site uses -60, not -100)
                 -30,           // volumeMax (-30 dB, which is the maximum allowed)
                 300,           // frequencyMin (Hz)
                 1500,          // frequencyMax (Hz)
-                200,           // volumeThreshold (demo site uses 200, not 50)
+                100,           // volumeThreshold (demo site uses 200, not 50)
                 this.decoder,  // decoder
                 500,           // bufferDuration for frequency adaptation
                 () => { },      // spectrogramCallback - empty function

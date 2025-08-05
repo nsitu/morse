@@ -21,5 +21,8 @@
   },
   "devDependencies": {
     "vite": "^7.0.4"
+  },
+  "dependencies": {
+    "morse-pro": "^3.0.1"
   }
 }

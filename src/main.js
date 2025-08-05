@@ -68,21 +68,9 @@ class MorseCodeDecoder {
           </div>
 
           <div class="controls">
-            <button id="generateBtn" class="btn">Generate Morse Code</button>
-            <button id="playBtn" class="btn primary" disabled>▶️ Play</button>
+            <button id="sendBtn" class="btn primary">📡 Send Morse Code</button>
             <button id="stopBtn" class="btn secondary" disabled>⏹️ Stop</button>
             <button id="clearSendBtn" class="btn secondary">Clear</button>
-          </div>
-
-          <div class="settings">
-            <div class="setting-group">
-              <label for="wpmSlider">Speed (WPM): <span id="wpmValue">20</span></label>
-              <input type="range" id="wpmSlider" min="5" max="50" value="20" class="slider">
-            </div>
-            <div class="setting-group">
-              <label for="frequencySlider">Frequency (Hz): <span id="frequencyValue">550</span></label>
-              <input type="range" id="frequencySlider" min="300" max="1500" value="550" class="slider">
-            </div>
           </div>
           
           <div class="output">
@@ -121,12 +109,8 @@ class MorseCodeDecoder {
         });
 
         // Send mode controls
-        document.getElementById('generateBtn').addEventListener('click', () => {
-            this.generateMorseCode();
-        });
-
-        document.getElementById('playBtn').addEventListener('click', () => {
-            this.playMorseCode();
+        document.getElementById('sendBtn').addEventListener('click', () => {
+            this.sendMorseCode();
         });
 
         document.getElementById('stopBtn').addEventListener('click', () => {
@@ -135,15 +119,6 @@ class MorseCodeDecoder {
 
         document.getElementById('clearSendBtn').addEventListener('click', () => {
             this.clearSendOutput();
-        });
-
-        // Settings sliders
-        document.getElementById('wpmSlider').addEventListener('input', (e) => {
-            document.getElementById('wpmValue').textContent = e.target.value;
-        });
-
-        document.getElementById('frequencySlider').addEventListener('input', (e) => {
-            document.getElementById('frequencyValue').textContent = e.target.value;
         });
     }
 
@@ -209,11 +184,11 @@ class MorseCodeDecoder {
 
         // Create audio player
         this.player = new MorsePlayerWAA({
-            defaultFrequency: 550,
+            defaultFrequency: 563,
             volume: 0.5,
             sequenceEndCallback: () => {
-                // Re-enable play button when playback ends
-                document.getElementById('playBtn').disabled = false;
+                // Re-enable send button when playback ends
+                document.getElementById('sendBtn').disabled = false;
                 document.getElementById('stopBtn').disabled = true;
             }
         });
@@ -332,7 +307,7 @@ class MorseCodeDecoder {
         document.getElementById('speed').textContent = 'Speed: -- WPM';
     }
 
-    generateMorseCode() {
+    sendMorseCode() {
         const text = document.getElementById('textInput').value.trim();
         if (!text) {
             alert('Please enter some text to convert.');
@@ -340,9 +315,9 @@ class MorseCodeDecoder {
         }
 
         try {
-            // Update player settings first
-            const wpm = parseInt(document.getElementById('wpmSlider').value);
-            const frequency = parseInt(document.getElementById('frequencySlider').value);
+            // Update player settings with optimal values
+            const wpm = 20; // Fixed optimal speed for accuracy
+            const frequency = 563; // Fixed optimal frequency
 
             this.morseCW.setWPM(wpm);
             this.player.frequency = frequency;
@@ -394,14 +369,16 @@ class MorseCodeDecoder {
                 // Load the sequence for playback
                 this.player.load({ timings });
 
-                // Enable play button
-                document.getElementById('playBtn').disabled = false;
+                // Start playing immediately
+                this.player.playFromStart();
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+
             } catch (timingError) {
                 console.error('Error generating timing:', timingError);
                 console.log('Morse tokens structure:', morseTokens);
 
                 // Still show the morse code even if timing fails
-                document.getElementById('playBtn').disabled = true;
                 alert('Morse code generated but audio playback failed: ' + timingError.message);
             }
 
@@ -423,7 +400,7 @@ class MorseCodeDecoder {
     stopPlayback() {
         if (this.player) {
             this.player.stop();
-            document.getElementById('playBtn').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
         }
     }
@@ -431,7 +408,7 @@ class MorseCodeDecoder {
     clearSendOutput() {
         document.getElementById('textInput').value = '';
         document.getElementById('generatedMorse').textContent = '';
-        document.getElementById('playBtn').disabled = true;
+        document.getElementById('sendBtn').disabled = false;
         document.getElementById('stopBtn').disabled = true;
     }
 

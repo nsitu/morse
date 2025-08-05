@@ -255,17 +255,57 @@ class MorseCodeDecoder {
             const parentMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(Object.getPrototypeOf(this.listener)));
             console.log('Parent class methods:', parentMethods);
 
-            if (typeof this.listener.startListening === 'function') {
-                console.log('Starting microphone via startListening method from parent class');
-                this.listener.startListening();
-            } else {
-                console.log('startListening method not found, trying manual approach');
-                // Force microphone access using navigator.mediaDevices
+            // Always use manual approach with optimal audio constraints to prevent mobile filtering
+            try {
+                console.log('Requesting microphone with raw audio constraints to prevent mobile filtering');
+
+                // Advanced audio constraints to disable mobile audio processing
+                const audioConstraints = {
+                    audio: {
+                        // Disable automatic gain control
+                        autoGainControl: false,
+                        // Disable noise suppression (key for morse code!)
+                        noiseSuppression: false,
+                        // Disable echo cancellation
+                        echoCancellation: false,
+                        // Request high sample rate for better frequency resolution
+                        sampleRate: { ideal: 48000 },
+                        // Request sufficient channel count
+                        channelCount: { ideal: 1 },
+                        // Request low latency for real-time processing
+                        latency: { ideal: 0.01 },
+                        // Request high sample size for better dynamic range
+                        sampleSize: { ideal: 16 }
+                    },
+                    video: false
+                };
+
+                const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
+                console.log('Microphone access granted with raw audio settings');
+                console.log('Audio track settings:', stream.getAudioTracks()[0].getSettings());
+
+                // Manually update UI since the callback might not fire
+                document.getElementById('status').textContent = 'Listening for Morse code...';
+                document.getElementById('startStopBtn').textContent = 'Stop Listening';
+                document.getElementById('startStopBtn').disabled = false;
+                this.isListening = true;
+
+                // Connect the stream to the listener's audio processing
+                if (this.listener.audioContext && this.listener.audioContext.createMediaStreamSource) {
+                    this.listener.sourceNode = this.listener.audioContext.createMediaStreamSource(stream);
+                    if (this.listener.jsNode) {
+                        this.listener.sourceNode.connect(this.listener.analyserNode);
+                        this.listener.jsNode.connect(this.listener.audioContext.destination);
+                    }
+                }
+            } catch (micError) {
+                console.error('Raw audio access failed, trying with basic constraints:', micError);
+                // Fallback to basic constraints if advanced ones fail
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    console.log('Microphone access granted manually');
+                    console.log('Microphone access granted with basic settings');
 
-                    // Manually update UI since the callback might not fire
+                    // Manually update UI
                     document.getElementById('status').textContent = 'Listening for Morse code...';
                     document.getElementById('startStopBtn').textContent = 'Stop Listening';
                     document.getElementById('startStopBtn').disabled = false;
@@ -275,11 +315,12 @@ class MorseCodeDecoder {
                     if (this.listener.audioContext && this.listener.audioContext.createMediaStreamSource) {
                         this.listener.sourceNode = this.listener.audioContext.createMediaStreamSource(stream);
                         if (this.listener.jsNode) {
-                            this.listener.sourceNode.connect(this.listener.jsNode);
+                            this.listener.sourceNode.connect(this.listener.analyserNode);
+                            this.listener.jsNode.connect(this.listener.audioContext.destination);
                         }
                     }
-                } catch (micError) {
-                    console.error('Manual microphone access failed:', micError);
+                } catch (basicError) {
+                    console.error('All microphone access attempts failed:', basicError);
                     document.getElementById('status').textContent = 'Microphone access denied';
                     document.getElementById('startStopBtn').textContent = 'Start Listening';
                     document.getElementById('startStopBtn').disabled = false;

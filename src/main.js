@@ -257,6 +257,7 @@ class MorseCodeDecoder {
 
             // Always use manual approach with optimal audio constraints to prevent mobile filtering
             try {
+                document.getElementById('status').textContent = 'Requesting raw audio access...';
                 console.log('Requesting microphone with raw audio constraints to prevent mobile filtering');
 
                 // Advanced audio constraints to disable mobile audio processing
@@ -281,11 +282,22 @@ class MorseCodeDecoder {
                 };
 
                 const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
-                console.log('Microphone access granted with raw audio settings');
-                console.log('Audio track settings:', stream.getAudioTracks()[0].getSettings());
+                const audioTrack = stream.getAudioTracks()[0];
+                const settings = audioTrack.getSettings();
 
-                // Manually update UI since the callback might not fire
-                document.getElementById('status').textContent = 'Listening for Morse code...';
+                console.log('Microphone access granted with raw audio settings');
+                console.log('Audio track settings:', settings);
+
+                // Show detailed status in UI for mobile debugging
+                const statusParts = [
+                    'Raw Audio Mode ✓',
+                    `AGC: ${settings.autoGainControl === false ? 'OFF' : 'ON'}`,
+                    `Noise: ${settings.noiseSuppression === false ? 'OFF' : 'ON'}`,
+                    `Echo: ${settings.echoCancellation === false ? 'OFF' : 'ON'}`,
+                    `${Math.round(settings.sampleRate / 1000)}kHz`
+                ];
+                document.getElementById('status').textContent = statusParts.join(' | ');
+
                 document.getElementById('startStopBtn').textContent = 'Stop Listening';
                 document.getElementById('startStopBtn').disabled = false;
                 this.isListening = true;
@@ -300,13 +312,25 @@ class MorseCodeDecoder {
                 }
             } catch (micError) {
                 console.error('Raw audio access failed, trying with basic constraints:', micError);
+                document.getElementById('status').textContent = 'Raw audio failed, trying basic...';
+
                 // Fallback to basic constraints if advanced ones fail
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const audioTrack = stream.getAudioTracks()[0];
+                    const settings = audioTrack.getSettings();
+
                     console.log('Microphone access granted with basic settings');
 
-                    // Manually update UI
-                    document.getElementById('status').textContent = 'Listening for Morse code...';
+                    // Show basic mode status in UI
+                    const statusParts = [
+                        'Basic Audio Mode',
+                        `AGC: ${settings.autoGainControl === false ? 'OFF' : 'ON'}`,
+                        `Noise: ${settings.noiseSuppression === false ? 'OFF' : 'ON'}`,
+                        `${Math.round(settings.sampleRate / 1000)}kHz`
+                    ];
+                    document.getElementById('status').textContent = statusParts.join(' | ');
+
                     document.getElementById('startStopBtn').textContent = 'Stop Listening';
                     document.getElementById('startStopBtn').disabled = false;
                     this.isListening = true;
@@ -321,12 +345,11 @@ class MorseCodeDecoder {
                     }
                 } catch (basicError) {
                     console.error('All microphone access attempts failed:', basicError);
-                    document.getElementById('status').textContent = 'Microphone access denied';
+                    document.getElementById('status').textContent = `Microphone access failed: ${basicError.message}`;
                     document.getElementById('startStopBtn').textContent = 'Start Listening';
                     document.getElementById('startStopBtn').disabled = false;
                 }
             }
-
         } catch (error) {
             console.error('Error starting listener:', error);
             document.getElementById('status').textContent = 'Error starting listener: ' + error.message;

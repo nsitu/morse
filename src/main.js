@@ -13,6 +13,7 @@ class MorseCodeDecoder {
         this.isListening = false;
         this.decodedText = '';
         this.currentMode = 'receive'; // 'receive' or 'send'
+        this.preparedTimings = null; // Store pre-generated morse timing data
 
         this.initializeUI();
         this.setupDecoder();
@@ -119,6 +120,11 @@ class MorseCodeDecoder {
 
         document.getElementById('clearSendBtn').addEventListener('click', () => {
             this.clearSendOutput();
+        });
+
+        // Auto-generate morse code as user types
+        document.getElementById('textInput').addEventListener('input', () => {
+            this.generateMorseCode();
         });
     }
 
@@ -307,10 +313,14 @@ class MorseCodeDecoder {
         document.getElementById('speed').textContent = 'Speed: -- WPM';
     }
 
-    sendMorseCode() {
+    generateMorseCode() {
         const text = document.getElementById('textInput').value.trim();
+
+        // Clear display if no text
         if (!text) {
-            alert('Please enter some text to convert.');
+            document.getElementById('generatedMorse').textContent = '';
+            this.preparedTimings = null;
+            document.getElementById('sendBtn').disabled = true;
             return;
         }
 
@@ -324,7 +334,6 @@ class MorseCodeDecoder {
 
             // Tokenize the text
             const tokens = this.morseCW.tokeniseText(text);
-            console.log('Text tokens:', tokens);
 
             // Convert text tokens to morse tokens in the format expected by morseTokens2timing
             const morseTokens = [];
@@ -332,60 +341,71 @@ class MorseCodeDecoder {
 
             tokens.forEach(tokenArray => {
                 const wordTokens = [];
+                const wordMorseDisplay = [];
+
                 tokenArray.forEach(token => {
                     // Look up the token in the text2morse dictionary
                     const morseCode = this.morseCW.text2morseD[token.toUpperCase()];
                     if (morseCode) {
                         wordTokens.push(morseCode);
-                        morseCodeDisplay.push(morseCode);
-                    } else if (token === ' ') {
-                        // Handle spaces - add word separator
-                        if (wordTokens.length > 0) {
-                            morseTokens.push(wordTokens);
-                            wordTokens.length = 0; // Clear the array
-                        }
-                        morseCodeDisplay.push(' / '); // Visual separator for words
+                        // Remove any internal spaces from morse code letters to match receiver format
+                        wordMorseDisplay.push(morseCode.replace(/\s+/g, ''));
                     } else {
                         console.warn('Unknown character:', token);
                     }
                 });
 
-                // Add the last word if there are remaining tokens
+                // Add the word tokens and display if we have any
                 if (wordTokens.length > 0) {
                     morseTokens.push(wordTokens);
+                    // Join letters in the word with spaces, matching receiver format
+                    morseCodeDisplay.push(wordMorseDisplay.join('  '));
                 }
             });
 
-            console.log('Generated morse tokens for timing:', morseTokens);
-
-            // Display the morse code
-            document.getElementById('generatedMorse').textContent = morseCodeDisplay.join(' ');
+            // Display the morse code with word separators, matching receiver format
+            document.getElementById('generatedMorse').textContent = morseCodeDisplay.join('/ ');
 
             try {
-                // Generate timing for playback using the morseTokens2timing method
-                const timings = this.morseCW.morseTokens2timing(morseTokens);
-                console.log('Timings:', timings);
+                // Generate timing for playback and store it
+                this.preparedTimings = this.morseCW.morseTokens2timing(morseTokens);
 
-                // Load the sequence for playback
-                this.player.load({ timings });
-
-                // Start playing immediately
-                this.player.playFromStart();
-                document.getElementById('sendBtn').disabled = true;
-                document.getElementById('stopBtn').disabled = false;
+                // Enable send button since we have valid morse code
+                document.getElementById('sendBtn').disabled = false;
 
             } catch (timingError) {
                 console.error('Error generating timing:', timingError);
-                console.log('Morse tokens structure:', morseTokens);
-
-                // Still show the morse code even if timing fails
-                alert('Morse code generated but audio playback failed: ' + timingError.message);
+                this.preparedTimings = null;
+                document.getElementById('sendBtn').disabled = true;
             }
 
         } catch (error) {
             console.error('Error generating morse code:', error);
-            console.log('MorseCW instance properties:', Object.keys(this.morseCW));
-            alert('Error generating morse code: ' + error.message);
+            document.getElementById('generatedMorse').textContent = 'Error generating morse code';
+            this.preparedTimings = null;
+            document.getElementById('sendBtn').disabled = true;
+        }
+    }
+
+    sendMorseCode() {
+        // Check if we have prepared timings ready to play
+        if (!this.preparedTimings) {
+            alert('No morse code ready to send. Please enter some text first.');
+            return;
+        }
+
+        try {
+            // Load the pre-generated sequence for playback
+            this.player.load({ timings: this.preparedTimings });
+
+            // Start playing immediately
+            this.player.playFromStart();
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+
+        } catch (error) {
+            console.error('Error playing morse code:', error);
+            alert('Error playing morse code: ' + error.message);
         }
     }
 
@@ -408,7 +428,8 @@ class MorseCodeDecoder {
     clearSendOutput() {
         document.getElementById('textInput').value = '';
         document.getElementById('generatedMorse').textContent = '';
-        document.getElementById('sendBtn').disabled = false;
+        this.preparedTimings = null;
+        document.getElementById('sendBtn').disabled = true;
         document.getElementById('stopBtn').disabled = true;
     }
 

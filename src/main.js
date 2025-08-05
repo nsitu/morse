@@ -1,6 +1,6 @@
 import './style.css'
-import MorseAdaptiveListener from 'morse-pro/lib/morse-pro-listener-adaptive'
-import MorseAdaptiveDecoder from 'morse-pro/lib/morse-pro-decoder-adaptive'
+import MorseListener from 'morse-pro/lib/morse-pro-listener'
+import MorseDecoder from 'morse-pro/lib/morse-pro-decoder'
 import MorsePlayerWAA from 'morse-pro/lib/morse-pro-player-waa'
 import MorseCW from 'morse-pro/lib/morse-pro-cw'
 
@@ -169,11 +169,11 @@ class MorseCodeDecoder {
             document.getElementById('speed').textContent = `Speed: ${Math.round(speedData.wpm)} WPM`;
         };
 
-        // Create decoder with adaptive speed detection
-        this.decoder = new MorseAdaptiveDecoder({
+        // Create decoder with fixed optimal speed for consistent performance
+        this.decoder = new MorseDecoder({
             dictionary: 'international',
             dictionaryOptions: ['prosigns'],
-            wpm: 20, // Initial speed estimate
+            wpm: 20, // Fixed speed matching our transmission
             messageCallback,
             speedCallback
         });
@@ -188,10 +188,10 @@ class MorseCodeDecoder {
             fwpm: 20
         });
 
-        // Create audio player
+        // Create audio player with higher volume for better reliability
         this.player = new MorsePlayerWAA({
             defaultFrequency: 563,
-            volume: 0.5,
+            volume: 0.9, // Increased from 0.5 to 0.9 for better detection reliability
             sequenceEndCallback: () => {
                 // Re-enable send button when playback ends
                 document.getElementById('sendBtn').disabled = false;
@@ -215,16 +215,15 @@ class MorseCodeDecoder {
             document.getElementById('startStopBtn').textContent = 'Starting...';
             document.getElementById('startStopBtn').disabled = true;
 
-            // Create adaptive listener with parameters matching the working demo site
-            this.listener = new MorseAdaptiveListener(
+            // Create fixed listener with optimal parameters for 563Hz transmission
+            this.listener = new MorseListener(
                 2048,          // fftSize
-                -80,           // volumeMin (demo site uses -60, not -100)
-                -30,           // volumeMax (-30 dB, which is the maximum allowed)
-                300,           // frequencyMin (Hz)
-                1500,          // frequencyMax (Hz)
-                100,           // volumeThreshold (demo site uses 200, not 50)
+                -60,           // volumeMin
+                -30,           // volumeMax
+                538,           // frequencyMin (563Hz - 25Hz tolerance)
+                588,           // frequencyMax (563Hz + 25Hz tolerance)
+                200,           // volumeThreshold
                 this.decoder,  // decoder
-                500,           // bufferDuration for frequency adaptation
                 () => { },      // spectrogramCallback - empty function
                 () => { },      // frequencyFilterCallback - empty function  
                 () => { },      // volumeFilterCallback - empty function

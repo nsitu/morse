@@ -218,11 +218,11 @@ class MorseCodeDecoder {
             // Create fixed listener with optimal parameters for 563Hz transmission
             this.listener = new MorseListener(
                 2048,          // fftSize
-                -60,           // volumeMin
+                -70,           // volumeMin
                 -30,           // volumeMax
                 538,           // frequencyMin (563Hz - 25Hz tolerance)
                 588,           // frequencyMax (563Hz + 25Hz tolerance)
-                200,           // volumeThreshold
+                120,           // volumeThreshold
                 this.decoder,  // decoder
                 () => { },      // spectrogramCallback - empty function
                 () => { },      // frequencyFilterCallback - empty function  

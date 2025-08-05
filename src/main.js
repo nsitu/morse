@@ -257,18 +257,20 @@ class MorseCodeDecoder {
 
             // Always use manual approach with optimal audio constraints to prevent mobile filtering
             try {
-                document.getElementById('status').textContent = 'Requesting raw audio access...';
+                document.getElementById('status').textContent = 'Checking audio capabilities...';
                 console.log('Requesting microphone with raw audio constraints to prevent mobile filtering');
 
-                // Advanced audio constraints to disable mobile audio processing
+                // Check what constraints are actually supported on this platform
+                const supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
+                console.log('Supported constraints:', supportedConstraints);
+
+                const agcSupported = supportedConstraints.autoGainControl;
+                const noiseSupported = supportedConstraints.noiseSuppression;
+                const echoSupported = supportedConstraints.echoCancellation;
+
+                // Build constraints based on what's actually supported
                 const audioConstraints = {
                     audio: {
-                        // Disable automatic gain control
-                        autoGainControl: false,
-                        // Disable noise suppression (key for morse code!)
-                        noiseSuppression: false,
-                        // Disable echo cancellation
-                        echoCancellation: false,
                         // Request high sample rate for better frequency resolution
                         sampleRate: { ideal: 48000 },
                         // Request sufficient channel count
@@ -281,7 +283,18 @@ class MorseCodeDecoder {
                     video: false
                 };
 
-                const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
+                // Only add constraints that are supported
+                if (agcSupported) {
+                    audioConstraints.audio.autoGainControl = false;
+                }
+                if (noiseSupported) {
+                    audioConstraints.audio.noiseSuppression = false;
+                }
+                if (echoSupported) {
+                    audioConstraints.audio.echoCancellation = false;
+                }
+
+                console.log('Requesting constraints:', audioConstraints); const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
                 const audioTrack = stream.getAudioTracks()[0];
                 const settings = audioTrack.getSettings();
 
@@ -289,18 +302,71 @@ class MorseCodeDecoder {
                 console.log('Audio track settings:', settings);
 
                 // Show detailed status in UI for mobile debugging
+                const agcOff = settings.autoGainControl === false;
+                const noiseOff = settings.noiseSuppression === false;
+                const echoOff = settings.echoCancellation === false;
+
+                // Check if constraints were actually applied vs just supported
+                const agcWorked = !agcSupported || agcOff;
+                const noiseWorked = !noiseSupported || noiseOff;
+                const echoWorked = !echoSupported || echoOff;
+
                 const statusParts = [
-                    'Raw Audio Mode ✓',
-                    `AGC: ${settings.autoGainControl === false ? 'OFF' : 'ON'}`,
-                    `Noise: ${settings.noiseSuppression === false ? 'OFF' : 'ON'}`,
-                    `Echo: ${settings.echoCancellation === false ? 'OFF' : 'ON'}`,
-                    `${Math.round(settings.sampleRate / 1000)}kHz`
+                    'Raw Audio Mode ✓'
                 ];
+
+                // Show constraint status with support indicators
+                if (agcSupported) {
+                    statusParts.push(`AGC: ${agcOff ? 'OFF' : 'ON'}`);
+                } else {
+                    statusParts.push(`AGC: N/S`); // Not Supported
+                }
+
+                if (noiseSupported) {
+                    statusParts.push(`Noise: ${noiseOff ? 'OFF' : 'ON'}`);
+                } else {
+                    statusParts.push(`Noise: N/S`); // Not Supported
+                }
+
+                if (echoSupported) {
+                    statusParts.push(`Echo: ${echoOff ? 'OFF' : 'ON'}`);
+                } else {
+                    statusParts.push(`Echo: N/S`); // Not Supported
+                }
+
+                statusParts.push(`${Math.round(settings.sampleRate / 1000)}kHz`);
+
+                // Add platform-specific indicators
+                if (!agcWorked || !noiseWorked) {
+                    if (!agcSupported || !noiseSupported) {
+                        statusParts.push('(Old Safari)');
+                    } else {
+                        statusParts.push('(iOS Limited)');
+                    }
+                }
+
                 document.getElementById('status').textContent = statusParts.join(' | ');
 
                 document.getElementById('startStopBtn').textContent = 'Stop Listening';
                 document.getElementById('startStopBtn').disabled = false;
                 this.isListening = true;
+
+                // Adjust listener parameters based on platform capabilities
+                const needsCompensation = (!agcWorked || !noiseWorked);
+                if (needsCompensation) {
+                    // Platform limitations - adjust for AGC and/or noise suppression being active
+                    console.log('Platform has audio processing limitations, adjusting parameters');
+
+                    // Make the listener more sensitive to compensate for processing
+                    this.listener.volumeThreshold = 80; // Lower threshold (was 120)
+
+                    // Widen frequency range slightly to compensate for processing
+                    this.listener.frequencyFilterMin = 530; // Wider range (was 538)
+                    this.listener.frequencyFilterMax = 596; // Wider range (was 588)
+
+                    const reason = !agcSupported || !noiseSupported ? 'unsupported constraints' : 'platform limitations';
+                    console.log(`Adjusted for ${reason}: threshold=80, freq=530-596Hz`);
+                }
 
                 // Connect the stream to the listener's audio processing
                 if (this.listener.audioContext && this.listener.audioContext.createMediaStreamSource) {
